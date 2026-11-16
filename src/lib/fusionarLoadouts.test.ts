@@ -135,7 +135,7 @@ test('parseo tolerante acepta private _x =, punto y coma final y comillas simple
   const baseStr = `  private _miLoadout = [['arifle_MX_F','','','',[], [], ''],[],[],['U_B_CombatUniform_mcam',[['FirstAidKit',2]]],[],[],'H_HelmetB','',[],['ItemMap','','','','','']];  `;
   const objStr = JSON.stringify(crearLoadoutObjetivoPrueba());
 
-  const { resultado, avisos } = fusionarLoadouts(baseStr, objStr, {
+  const { resultado, avisos, informativos } = fusionarLoadouts(baseStr, objStr, {
     uniforme: true,
     chaleco: true,
     mochila: false,
@@ -143,9 +143,10 @@ test('parseo tolerante acepta private _x =, punto y coma final y comillas simple
 
   // Uniforme se fusionó (1 + 2 = 3 FirstAidKit)
   assert.deepEqual(resultado[3], ['U_B_CTRG_1', [['FirstAidKit', 3]]]);
-  // Chaleco del base era [] -> debe haber un aviso
-  assert.equal(avisos.length, 1);
-  assert.match(avisos[0], /Chaleco/i);
+  // Chaleco del base era [] -> debe haber un mensaje en informativos y 0 en avisos
+  assert.equal(avisos.length, 0);
+  assert.equal(informativos.length, 1);
+  assert.match(informativos[0], /Chaleco/i);
 });
 
 test('modo REEMPLAZAR sustituye lista de ítems conservando classname del contenedor objetivo', () => {

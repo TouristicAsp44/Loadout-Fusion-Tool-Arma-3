@@ -14,6 +14,7 @@ export interface ResultadoFusion {
   resultado: unknown[];
   resumen: string[];
   avisos: string[];
+  informativos: string[];
 }
 
 export class LoadoutValidationError extends Error {
@@ -233,6 +234,7 @@ export function fusionarLoadouts(
 
   const resumen: string[] = [];
   const avisos: string[] = [];
+  const informativos: string[] = [];
 
   const flagsContenedor: Record<'uniforme' | 'chaleco' | 'mochila', boolean> = {
     uniforme: usarUniforme,
@@ -259,7 +261,7 @@ export function fusionarLoadouts(
 
     // Regla: Si el contenedor base es [] o no tiene ítems: no cambia nada y agrega un aviso.
     if (!esContenedorExistente(contBase)) {
-      avisos.push(
+      informativos.push(
         `${nombre} (${indice}): sin cambios porque el loadout base no tiene este contenedor ([]).`
       );
       resumen.push(`${nombre}: sin cambios (contenedor base vacío)`);
@@ -268,7 +270,7 @@ export function fusionarLoadouts(
 
     const itemsBaseRaw = Array.isArray(contBase[1]) ? contBase[1] : [];
     if (itemsBaseRaw.length === 0) {
-      avisos.push(
+      informativos.push(
         `${nombre} (${indice}): sin cambios porque el contenedor base no tiene ítems.`
       );
       resumen.push(`${nombre}: sin cambios (0 ítems en base)`);
@@ -379,5 +381,6 @@ export function fusionarLoadouts(
     resultado: resultadoFinal,
     resumen,
     avisos,
+    informativos,
   };
 }

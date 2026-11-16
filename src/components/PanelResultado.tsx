@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Copy, Check, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Copy, Check, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { ResultadoFusion } from '../lib/fusionarLoadouts';
 
 interface PanelResultadoProps {
@@ -149,57 +149,82 @@ export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
         )}
       </div>
 
-      {/* Resumen por contenedor y Avisos */}
-      {fusion && (fusion.resumen.length > 0 || fusion.avisos.length > 0) && (
-        <div
-          aria-live="polite"
-          className="flex flex-col gap-3 pt-3 border-t border-[#2E333B]"
-        >
-          {fusion.resumen.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <h3 className="text-xs font-semibold text-[#9AA3AE] tracking-wide">
-                Resumen de fusión por contenedor
-              </h3>
-              <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
-                {fusion.resumen.map((linea, idx) => (
-                  <li
-                    key={idx}
-                    className="py-1 text-sm text-[#E6E8EB] flex items-start gap-2 tabular-nums"
-                  >
-                    <CheckCircle2
-                      className="w-4 h-4 text-[#86EFAC] shrink-0 mt-0.5"
-                      aria-hidden="true"
-                    />
-                    <span>{linea}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+      {/* Resumen por contenedor, Avisos e Informativos */}
+      {fusion &&
+        (fusion.resumen.length > 0 ||
+          fusion.avisos.length > 0 ||
+          fusion.informativos.length > 0) && (
+          <div
+            aria-live="polite"
+            className="flex flex-col gap-3 pt-3 border-t border-[#2E333B]"
+          >
+            {fusion.resumen.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-xs font-semibold text-[#9AA3AE] tracking-wide">
+                  Resumen de fusión por contenedor
+                </h3>
+                <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
+                  {fusion.resumen.map((linea, idx) => (
+                    <li
+                      key={idx}
+                      className="py-1 text-sm text-[#E6E8EB] flex items-start gap-2 tabular-nums"
+                    >
+                      <CheckCircle2
+                        className="w-4 h-4 text-[#86EFAC] shrink-0 mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <span>{linea}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-          {fusion.avisos.length > 0 && (
-            <div className="flex flex-col gap-2 pt-2 border-t border-[#2E333B]/60">
-              <h3 className="text-xs font-semibold text-[#FBBF24] tracking-wide">
-                Avisos de omisión
-              </h3>
-              <ul className="flex flex-col gap-1.5">
-                {fusion.avisos.map((aviso, idx) => (
-                  <li
-                    key={idx}
-                    className="py-1 text-sm text-[#FBBF24] flex items-start gap-2"
-                  >
-                    <AlertTriangle
-                      className="w-4 h-4 text-[#FBBF24] shrink-0 mt-0.5"
-                      aria-hidden="true"
-                    />
-                    <span>{aviso}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
+            {fusion.avisos.length > 0 && (
+              <div className="flex flex-col gap-2 pt-2 border-t border-[#2E333B]/60">
+                <h3 className="text-xs font-semibold text-[#FBBF24] tracking-wide">
+                  Avisos de omisión
+                </h3>
+                <ul className="flex flex-col gap-1.5">
+                  {fusion.avisos.map((aviso, idx) => (
+                    <li
+                      key={idx}
+                      className="py-1 text-sm text-[#FBBF24] flex items-start gap-2"
+                    >
+                      <AlertTriangle
+                        className="w-4 h-4 text-[#FBBF24] shrink-0 mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <span>{aviso}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {fusion.informativos.length > 0 && (
+              <div className="flex flex-col gap-2 pt-2 border-t border-[#2E333B]/60">
+                <h3 className="text-xs font-semibold text-[var(--muted)] tracking-wide">
+                  Sin cambios
+                </h3>
+                <ul className="flex flex-col gap-1.5">
+                  {fusion.informativos.map((infoMsg, idx) => (
+                    <li
+                      key={idx}
+                      className="py-1 text-sm text-[var(--muted)] flex items-start gap-2"
+                    >
+                      <Info
+                        className="w-4 h-4 text-[var(--muted)] shrink-0 mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <span>{infoMsg}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
     </section>
   );
 };
