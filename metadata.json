@@ -1,0 +1,6 @@
+{
+  "name": "Loadout Fusion Tool — Arma 3",
+  "description": "Añade o reemplaza los ítems de un loadout base en los contenedores de un loadout objetivo para Arma 3.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
