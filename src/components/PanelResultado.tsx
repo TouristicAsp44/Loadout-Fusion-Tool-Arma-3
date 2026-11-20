@@ -1,22 +1,68 @@
 import React, { useRef, useState } from 'react';
-import { Copy, Check, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
-import { ResultadoFusion } from '../lib/fusionarLoadouts';
+import { Copy, Check, AlertTriangle, CheckCircle2, Info, Layers } from 'lucide-react';
+import {
+  ResultadoFusion,
+  type FormatoSalida,
+  generarSalidaFormateada,
+} from '../lib/fusionarLoadouts';
+import { VisorDiff } from './VisorDiff';
 
 interface PanelResultadoProps {
   fusion: ResultadoFusion | null;
 }
 
+const OPCIONES_FORMATO: Array<{
+  id: FormatoSalida;
+  etiqueta: string;
+  descripcion: string;
+}> = [
+  {
+    id: 'compacto',
+    etiqueta: 'Compacto',
+    descripcion: 'JSON en una sola línea (ideal para scripts en línea)',
+  },
+  {
+    id: 'formateado',
+    etiqueta: 'Formateado',
+    descripcion: 'JSON con sangría de 2 espacios (fácil de inspeccionar)',
+  },
+  {
+    id: 'sqf',
+    etiqueta: 'Script SQF',
+    descripcion: '[player, loadout] call BIS_fnc_setUnitLoadout;',
+  },
+  {
+    id: 'cfgRespawn',
+    etiqueta: 'CfgRespawn',
+    descripcion: 'Clase CfgRespawnInventory para description.ext',
+  },
+];
+
 export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
-  const [formatoCompacto, setFormatoCompacto] = useState<boolean>(true);
+  const [formato, setFormato] = useState<FormatoSalida>('compacto');
   const [copiado, setCopiado] = useState<boolean>(false);
+  const [mensajeAria, setMensajeAria] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const timeoutRef = useRef<number | null>(null);
 
-  const textoResultado = fusion
-    ? formatoCompacto
-      ? JSON.stringify(fusion.resultado)
-      : JSON.stringify(fusion.resultado, null, 2)
-    : '';
+  // Generar texto según formato seleccionado
+  let textoResultado = '';
+  if (fusion) {
+    if (typeof generarSalidaFormateada === 'function') {
+      textoResultado = generarSalidaFormateada(fusion.resultado, formato);
+    } else {
+      // Fallback seguro en caso de desacoplamiento de versiones
+      if (formato === 'compacto') {
+        textoResultado = JSON.stringify(fusion.resultado);
+      } else if (formato === 'formateado') {
+        textoResultado = JSON.stringify(fusion.resultado, null, 2);
+      } else if (formato === 'sqf') {
+        textoResultado = `[player, ${JSON.stringify(fusion.resultado)}] call BIS_fnc_setUnitLoadout;`;
+      } else if (formato === 'cfgRespawn') {
+        textoResultado = `class CfgRespawnInventory\n{\n    // Loadout fusionado\n};`;
+      }
+    }
+  }
 
   const manejarCopiar = async () => {
     if (!textoResultado) return;
@@ -44,12 +90,14 @@ export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
 
     if (exito) {
       setCopiado(true);
+      setMensajeAria('¡Loadout copiado al portapapeles!');
       if (timeoutRef.current) {
         window.clearTimeout(timeoutRef.current);
       }
       timeoutRef.current = window.setTimeout(() => {
         setCopiado(false);
-      }, 2000);
+        setMensajeAria('');
+      }, 2500);
     }
   };
 
@@ -58,46 +106,51 @@ export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
       aria-labelledby="label-loadout-resultado"
       className="bg-[#1C1F25] border border-[#2E333B] rounded-[8px] p-5 flex flex-col gap-4"
     >
+      {/* Región accesible en vivo para lectores de pantalla */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {mensajeAria}
+      </div>
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <label
           id="label-loadout-resultado"
           htmlFor="loadout-resultado"
-          className="text-base font-semibold text-[#E6E8EB]"
+          className="text-base font-semibold text-[#E6E8EB] flex items-center gap-2"
         >
-          Loadout Resultante
+          <span>Loadout Resultante</span>
         </label>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Toggle Compacto / Formateado */}
+          {/* Selector de formatos de exportación */}
           <div
             role="group"
-            aria-label="Formato del resultado"
-            className="inline-flex bg-[#14161A] border border-[#2E333B] rounded-[8px] p-1 gap-1"
+            aria-label="Formato de exportación del resultado"
+            className="inline-flex bg-[#14161A] border border-[#2E333B] rounded-[8px] p-1 gap-1 flex-wrap"
           >
-            <button
-              type="button"
-              aria-pressed={formatoCompacto}
-              onClick={() => setFormatoCompacto(true)}
-              className={`min-h-[44px] px-3.5 py-1.5 rounded-[6px] text-sm font-medium transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A9A5B] ${
-                formatoCompacto
-                  ? 'bg-[#8A9A5B] text-[#14161A] font-semibold'
-                  : 'text-[#9AA3AE] hover:text-[#E6E8EB]'
-              }`}
-            >
-              Compacto
-            </button>
-            <button
-              type="button"
-              aria-pressed={!formatoCompacto}
-              onClick={() => setFormatoCompacto(false)}
-              className={`min-h-[44px] px-3.5 py-1.5 rounded-[6px] text-sm font-medium transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A9A5B] ${
-                !formatoCompacto
-                  ? 'bg-[#8A9A5B] text-[#14161A] font-semibold'
-                  : 'text-[#9AA3AE] hover:text-[#E6E8EB]'
-              }`}
-            >
-              Formateado
-            </button>
+            {OPCIONES_FORMATO.map((opc) => {
+              const activo = formato === opc.id;
+              return (
+                <button
+                  key={opc.id}
+                  type="button"
+                  aria-pressed={activo}
+                  title={opc.descripcion}
+                  onClick={() => setFormato(opc.id)}
+                  className={`min-h-[40px] px-3 py-1.5 rounded-[6px] text-xs sm:text-sm font-medium transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A9A5B] cursor-pointer ${
+                    activo
+                      ? 'bg-[#8A9A5B] text-[#14161A] font-semibold'
+                      : 'text-[#9AA3AE] hover:text-[#E6E8EB]'
+                  }`}
+                >
+                  {opc.etiqueta}
+                </button>
+              );
+            })}
           </div>
 
           {/* Botón Copiar */}
@@ -105,6 +158,7 @@ export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
             type="button"
             onClick={manejarCopiar}
             disabled={!textoResultado}
+            aria-label={copiado ? 'Loadout copiado al portapapeles' : 'Copiar loadout resultante'}
             className={`min-h-[44px] px-4 py-2 rounded-[8px] text-sm font-semibold inline-flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A9A5B] ${
               !textoResultado
                 ? 'bg-[#14161A] border border-[#2E333B] text-[#9AA3AE] opacity-50 cursor-not-allowed'
@@ -128,7 +182,7 @@ export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
         </div>
       </div>
 
-      {/* Textarea de solo lectura */}
+      {/* Textarea de solo lectura con el loadout formateado */}
       <div className="relative">
         <textarea
           ref={textareaRef}
@@ -136,8 +190,8 @@ export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
           readOnly
           rows={6}
           value={textoResultado}
-          placeholder="El resultado aparecerá aquí"
-          className="w-full bg-[#14161A] border border-[#2E333B] rounded-[8px] p-3.5 font-mono text-sm text-[#E6E8EB] placeholder:text-[#9AA3AE] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8A9A5B] resize-y"
+          placeholder="El resultado aparecerá aquí al completar ambos loadouts válidos"
+          className="w-full bg-[#14161A] border border-[#2E333B] rounded-[8px] p-3.5 font-mono text-xs sm:text-sm text-[#E6E8EB] placeholder:text-[#9AA3AE] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8A9A5B] resize-y"
         />
         {!textoResultado && (
           <div
@@ -204,17 +258,17 @@ export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
 
             {fusion.informativos.length > 0 && (
               <div className="flex flex-col gap-2 pt-2 border-t border-[#2E333B]/60">
-                <h3 className="text-xs font-semibold text-[var(--muted)] tracking-wide">
+                <h3 className="text-xs font-semibold text-[#9AA3AE] tracking-wide">
                   Sin cambios
                 </h3>
                 <ul className="flex flex-col gap-1.5">
                   {fusion.informativos.map((infoMsg, idx) => (
                     <li
                       key={idx}
-                      className="py-1 text-sm text-[var(--muted)] flex items-start gap-2"
+                      className="py-1 text-sm text-[#9AA3AE] flex items-start gap-2"
                     >
                       <Info
-                        className="w-4 h-4 text-[var(--muted)] shrink-0 mt-0.5"
+                        className="w-4 h-4 text-[#9AA3AE] shrink-0 mt-0.5"
                         aria-hidden="true"
                       />
                       <span>{infoMsg}</span>
@@ -225,6 +279,13 @@ export const PanelResultado: React.FC<PanelResultadoProps> = ({ fusion }) => {
             )}
           </div>
         )}
+
+      {/* Visor Diff integrado directamente en la sección de resultados */}
+      {fusion && (
+        <div className="pt-2">
+          <VisorDiff cambios={fusion.cambios} defaultAbierto={true} />
+        </div>
+      )}
     </section>
   );
 };

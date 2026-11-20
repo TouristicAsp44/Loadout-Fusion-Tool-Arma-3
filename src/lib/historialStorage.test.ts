@@ -7,6 +7,7 @@ import {
   guardarEnHistorial,
   fusionarHistorialImportado,
   leerHistorialLocal,
+  filtrarHistorial,
 } from './historialStorage';
 import { OpcionesFusion } from './fusionarLoadouts';
 
@@ -130,4 +131,76 @@ test('importación rechaza JSON inválido o estructura incorrecta sin modificar 
   assert.equal(resEsquemaInvalido.ok, false);
   assert.equal(store.get(STORAGE_KEY), snapshotStorageAntes);
   assert.deepEqual(leerHistorialLocal(), historialInicial);
+});
+
+test('filtrarHistorial devuelve la lista completa cuando el query está vacío o solo contiene espacios', () => {
+  const lista: ConfiguracionGuardada[] = [
+    {
+      id: '1',
+      nombre: 'Alpha',
+      fechaIso: new Date().toISOString(),
+      base: 'base1',
+      objetivo: 'obj1',
+      modo: 'añadir',
+      opciones: OPCIONES_PRUEBA,
+    },
+    {
+      id: '2',
+      nombre: 'Bravo',
+      fechaIso: new Date().toISOString(),
+      base: 'base2',
+      objetivo: 'obj2',
+      modo: 'reemplazar',
+      opciones: { ...OPCIONES_PRUEBA, modo: 'reemplazar' },
+    },
+  ];
+
+  assert.equal(filtrarHistorial(lista, '').length, 2);
+  assert.equal(filtrarHistorial(lista, '   ').length, 2);
+});
+
+test('filtrarHistorial busca por nombre, modo, o contenido de loadout de forma insensible a mayúsculas', () => {
+  const lista: ConfiguracionGuardada[] = [
+    {
+      id: 'cfg-medic',
+      nombre: 'Médico de Combate CTRG',
+      fechaIso: new Date().toISOString(),
+      base: 'arifle_MX_F FirstAidKit',
+      objetivo: 'U_B_CTRG_1',
+      modo: 'añadir',
+      opciones: OPCIONES_PRUEBA,
+    },
+    {
+      id: 'cfg-sniper',
+      nombre: 'Francotirador M320',
+      fechaIso: new Date().toISOString(),
+      base: 'srifle_LRR_F',
+      objetivo: 'U_B_GhillieSuit',
+      modo: 'reemplazar',
+      opciones: { ...OPCIONES_PRUEBA, modo: 'reemplazar' },
+    },
+  ];
+
+  // Buscar por nombre
+  const porNombre = filtrarHistorial(lista, 'médico');
+  assert.equal(porNombre.length, 1);
+  assert.equal(porNombre[0].id, 'cfg-medic');
+
+  // Buscar por contenido en base/objetivo
+  const porArma = filtrarHistorial(lista, 'LRR_F');
+  assert.equal(porArma.length, 1);
+  assert.equal(porArma[0].id, 'cfg-sniper');
+
+  // Buscar por modo
+  const porModo = filtrarHistorial(lista, 'reemplazar');
+  assert.equal(porModo.length, 1);
+  assert.equal(porModo[0].id, 'cfg-sniper');
+
+  // Buscar por id
+  const porId = filtrarHistorial(lista, 'cfg-medic');
+  assert.equal(porId.length, 1);
+
+  // Sin coincidencias
+  const sinResultados = filtrarHistorial(lista, 'inexistente');
+  assert.equal(sinResultados.length, 0);
 });

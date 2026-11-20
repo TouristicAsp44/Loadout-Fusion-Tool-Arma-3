@@ -128,4 +128,5 @@ Generado con Google AI Studio (modo *Build*) y refinado con revisiones de códig
 
 ## Licencia
 
-Apache-2.0 (indicada en el encabezado de `src/App.tsx`). Si vas a distribuir el proyecto, añade un archivo `LICENSE` con el texto completo.
+MIT (indicada en el encabezado de `src/App.tsx`). Si vas a distribuir el proyecto, añade un archivo `LICENSE` con el texto completo.
+

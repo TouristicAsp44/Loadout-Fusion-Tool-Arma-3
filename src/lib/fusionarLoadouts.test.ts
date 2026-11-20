@@ -4,6 +4,9 @@ import {
   fusionarLoadouts,
   LoadoutValidationError,
   calcularClaveItem,
+  extraerClassnameItem,
+  normalizarCadenaLoadout,
+  generarSalidaFormateada,
 } from './fusionarLoadouts';
 
 function crearLoadoutBasePrueba(): unknown[] {
@@ -74,7 +77,7 @@ test('modo AÑADIR conserva classname del objetivo, suma claves iguales y añade
   const base = crearLoadoutBasePrueba();
   const objetivo = crearLoadoutObjetivoPrueba();
 
-  const { resultado, resumen, avisos } = fusionarLoadouts(base, objetivo);
+  const { resultado, resumen, avisos, cambios } = fusionarLoadouts(base, objetivo);
 
   assert.equal(avisos.length, 0);
 
@@ -110,6 +113,25 @@ test('modo AÑADIR conserva classname del objetivo, suma claves iguales y añade
       ['30Rnd_65x39_caseless_mag', 2, 20],
     ],
   ]);
+
+  // Verificar que el array de cambios diff se pobló detalladamente
+  assert.ok(cambios.length > 0);
+
+  const cambioFak = cambios.find(
+    (c) => c.contenedor === 'Uniforme' && c.classname === 'FirstAidKit'
+  );
+  assert.ok(cambioFak);
+  assert.equal(cambioFak.tipo, 'sumado');
+  assert.equal(cambioFak.cantidadAnterior, 1);
+  assert.equal(cambioFak.cantidadNueva, 3);
+
+  const cambioChemlight = cambios.find(
+    (c) => c.contenedor === 'Uniforme' && c.classname === 'Chemlight_green'
+  );
+  assert.ok(cambioChemlight);
+  assert.equal(cambioChemlight.tipo, 'añadido');
+  assert.equal(cambioChemlight.cantidadAnterior, 0);
+  assert.equal(cambioChemlight.cantidadNueva, 1);
 
   // No muta las entradas originales
   assert.equal((objetivo[4] as [string, [string, number, number][]
@@ -149,11 +171,11 @@ test('parseo tolerante acepta private _x =, punto y coma final y comillas simple
   assert.match(informativos[0], /Chaleco/i);
 });
 
-test('modo REEMPLAZAR sustituye lista de ítems conservando classname del contenedor objetivo', () => {
+test('modo REEMPLAZAR sustituye lista de ítems conservando classname del contenedor objetivo y registra diff reemplazado', () => {
   const base = crearLoadoutBasePrueba();
   const objetivo = crearLoadoutObjetivoPrueba();
 
-  const { resultado } = fusionarLoadouts(base, objetivo, {
+  const { resultado, cambios } = fusionarLoadouts(base, objetivo, {
     modo: 'reemplazar',
     uniforme: false,
     chaleco: true,
@@ -168,6 +190,17 @@ test('modo REEMPLAZAR sustituye lista de ítems conservando classname del conten
       ['SmokeShell', 1, 1],
     ],
   ]);
+
+  const cambiosChaleco = cambios.filter((c) => c.contenedor === 'Chaleco');
+  assert.equal(cambiosChaleco.length, 3);
+  assert.ok(cambiosChaleco.every((c) => c.tipo === 'reemplazado'));
+
+  const magCambio = cambiosChaleco.find(
+    (c) => c.classname === '30Rnd_65x39_caseless_mag'
+  );
+  assert.ok(magCambio);
+  assert.equal(magCambio.cantidadAnterior, 2);
+  assert.equal(magCambio.cantidadNueva, 1);
 });
 
 test('omite contenedor cuando el objetivo es [] y agrega aviso', () => {
@@ -238,4 +271,133 @@ test('calcularClaveItem distingue cargadores con distinta munición y armas alma
 
   assert.equal(calcularClaveItem(magLleno), calcularClaveItem(magLlenoOtraCant));
   assert.notEqual(calcularClaveItem(magLleno), calcularClaveItem(magParcial));
+});
+
+test('extraerClassnameItem obtiene nombre de clase tanto de ítems planos como de armas anidadas', () => {
+  assert.equal(extraerClassnameItem(['FirstAidKit', 2]), 'FirstAidKit');
+  assert.equal(
+    extraerClassnameItem([['arifle_MX_F', '', '', '', [], [], ''], 1]),
+    'arifle_MX_F'
+  );
+  assert.equal(extraerClassnameItem('H_HelmetB'), 'H_HelmetB');
+});
+
+test('normalizarCadenaLoadout soporta comentarios de línea (//) y bloque (/* */)', () => {
+  const sqfConComentarios = `
+    // Comentario inicial
+    /* Bloque
+       multilínea de autoría */
+    private _loadout = [
+      ["arifle_MX_F", "", "", "", ["30Rnd_65x39_caseless_mag", 30], [], ""], // Arma primaria
+      [],
+      [],
+      /* Comentario previo a contenedor */
+      ["U_B_CombatUniform_mcam", [["FirstAidKit", 2]]],
+      [],
+      [],
+      "H_HelmetB",
+      "",
+      [],
+      ["ItemMap", "", "", "", "", ""]
+    ]; // Fin de array
+  `;
+
+  const normalizado = normalizarCadenaLoadout(sqfConComentarios);
+  const parsed = JSON.parse(normalizado);
+  assert.ok(Array.isArray(parsed));
+  assert.equal(parsed.length, 10);
+  assert.equal(parsed[6], 'H_HelmetB');
+  assert.deepEqual(parsed[3], ['U_B_CombatUniform_mcam', [['FirstAidKit', 2]]]);
+});
+
+test('normalizarCadenaLoadout preserva secuencias parecidas a comentarios dentro de strings', () => {
+  const sqfConComentarioEnString = `
+    [
+      ["arifle_MX_F", "//no_comentario", "/*tampoco*/", "", [], [], ""],
+      [], [], [], [], [], "", "", [], []
+    ]
+  `;
+  const normalizado = normalizarCadenaLoadout(sqfConComentarioEnString);
+  const parsed = JSON.parse(normalizado);
+  assert.equal(parsed[0][1], '//no_comentario');
+  assert.equal(parsed[0][2], '/*tampoco*/');
+});
+
+test('normalizarCadenaLoadout traduce palabras clave SQF (nil, objNull, ...) y booleanos a JSON válido', () => {
+  const sqfConKeywords = `
+    [
+      ["arifle_MX_F", nil, objNull, grpNull, ["30Rnd_65x39_caseless_mag", 30], controlNull, displayNull],
+      locationNull,
+      taskNull,
+      ["U_B_CombatUniform_mcam", [["ItemWatch", 1, TRUE], ["ItemCompass", 1, FALSE]]],
+      [], [], "", "", [], []
+    ]
+  `;
+
+  const normalizado = normalizarCadenaLoadout(sqfConKeywords);
+  const parsed = JSON.parse(normalizado);
+
+  assert.equal(parsed[0][1], null);
+  assert.equal(parsed[0][2], null);
+  assert.equal(parsed[0][3], null);
+  assert.equal(parsed[0][5], null);
+  assert.equal(parsed[0][6], null);
+  assert.equal(parsed[1], null);
+  assert.equal(parsed[2], null);
+  assert.equal(parsed[3][1][0][2], true);
+  assert.equal(parsed[3][1][1][2], false);
+});
+
+test('normalizarCadenaLoadout maneja mayúsculas/minúsculas en palabras clave y no altera substrings', () => {
+  const sqfKeywordsMixtas = `
+    [
+      ["arifle_nil_test", NIL, ObjNull, True, False],
+      [], [], [], [], [], "", "", [], []
+    ]
+  `;
+  const normalizado = normalizarCadenaLoadout(sqfKeywordsMixtas);
+  const parsed = JSON.parse(normalizado);
+  assert.equal(parsed[0][0], 'arifle_nil_test');
+  assert.equal(parsed[0][1], null);
+  assert.equal(parsed[0][2], null);
+  assert.equal(parsed[0][3], true);
+  assert.equal(parsed[0][4], false);
+});
+
+test('generarSalidaFormateada produce formato compacto, formateado y SQF', () => {
+  const loadout = crearLoadoutObjetivoPrueba();
+
+  const compacto = generarSalidaFormateada(loadout, 'compacto');
+  assert.equal(compacto, JSON.stringify(loadout));
+
+  const formateado = generarSalidaFormateada(loadout, 'formateado');
+  assert.equal(formateado, JSON.stringify(loadout, null, 2));
+
+  const sqf = generarSalidaFormateada(loadout, 'sqf');
+  assert.equal(sqf, `[player, ${JSON.stringify(loadout)}] call BIS_fnc_setUnitLoadout;`);
+});
+
+test('generarSalidaFormateada produce CfgRespawnInventory válido para description.ext', () => {
+  const loadout = crearLoadoutBasePrueba();
+
+  const cfg = generarSalidaFormateada(loadout, 'cfgRespawn', 'Escuadra Alpha');
+
+  assert.match(cfg, /class CfgRespawnInventory/);
+  assert.match(cfg, /class Escuadra_Alpha/);
+  assert.match(cfg, /displayName = "Escuadra Alpha";/);
+  assert.match(cfg, /weapons\[\] = \{[\s\S]*"arifle_MX_F"[\s\S]*"hgun_P07_F"/);
+  assert.match(cfg, /linkedItems\[\] = \{[\s\S]*"V_PlateCarrier1_rgr"[\s\S]*"H_HelmetB"[\s\S]*"ItemMap"/);
+  assert.match(cfg, /uniformClass = "U_B_CombatUniform_mcam";/);
+  assert.match(cfg, /backpack = "B_AssaultPack_mcamo";/);
+  assert.match(cfg, /items\[\] = \{[\s\S]*"FirstAidKit"/);
+});
+
+test('generarSalidaFormateada soporta loadout envuelto [loadout, identidad] en cfgRespawn', () => {
+  const base = crearLoadoutBasePrueba();
+  const envuelto = [base, ['Face1', 'Voice1']];
+
+  const cfg = generarSalidaFormateada(envuelto, 'cfgRespawn', 'Tirador');
+  assert.match(cfg, /class Tirador/);
+  assert.match(cfg, /uniformClass = "U_B_CombatUniform_mcam";/);
+  assert.match(cfg, /weapons\[\]/);
 });

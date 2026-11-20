@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   Save,
   Download,
@@ -7,6 +7,8 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
+  Search,
+  X,
 } from 'lucide-react';
 import { OpcionesFusion } from '../lib/fusionarLoadouts';
 import {
@@ -15,6 +17,7 @@ import {
   guardarEnHistorial,
   escribirHistorialLocal,
   fusionarHistorialImportado,
+  filtrarHistorial,
 } from '../lib/historialStorage';
 
 interface PanelHistorialProps {
@@ -35,6 +38,7 @@ export const PanelHistorial: React.FC<PanelHistorialProps> = ({
   opcionesActuales,
 }) => {
   const [nombreConfig, setNombreConfig] = useState<string>('');
+  const [busqueda, setBusqueda] = useState<string>('');
   const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
   const [feedbackHistorial, setFeedbackHistorial] = useState<{
     tipo: 'ok' | 'error';
@@ -53,6 +57,16 @@ export const PanelHistorial: React.FC<PanelHistorialProps> = ({
       setFeedbackHistorial(null);
     }, 4000);
   };
+
+  // Filtrado de historial reactivo en tiempo real
+  const historialFiltrado = useMemo(() => {
+    if (!busqueda.trim()) return historial;
+    if (typeof filtrarHistorial === 'function') {
+      return filtrarHistorial(historial, busqueda);
+    }
+    const q = busqueda.trim().toLowerCase();
+    return historial.filter((item) => item.nombre.toLowerCase().includes(q));
+  }, [historial, busqueda]);
 
   const manejarGuardar = (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,7 +248,46 @@ export const PanelHistorial: React.FC<PanelHistorialProps> = ({
         </button>
       </form>
 
-      {/* Mensaje de estado / error en UI */}
+      {/* Buscador y filtro en tiempo real con contador de coincidencias */}
+      {historial.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+          <div className="relative flex-1">
+            <Search
+              className="w-4 h-4 text-[#9AA3AE] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar configuración por nombre..."
+              aria-label="Buscar configuración por nombre"
+              className="w-full bg-[#14161A] border border-[#2E333B] rounded-[8px] pl-9 pr-9 py-2 text-sm text-[#E6E8EB] placeholder:text-[#9AA3AE] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8A9A5B]"
+            />
+            {busqueda && (
+              <button
+                type="button"
+                onClick={() => setBusqueda('')}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#9AA3AE] hover:text-[#E6E8EB] focus:outline-none cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <div className="text-xs text-[#9AA3AE] tabular-nums shrink-0">
+            {busqueda.trim() ? (
+              <span>
+                Mostrando <strong className="text-[#86EFAC] font-semibold">{historialFiltrado.length}</strong> de {historial.length} configuraciones
+              </span>
+            ) : (
+              <span>{historial.length} configuraciones registradas</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Mensaje de estado / feedback en UI */}
       {feedbackHistorial && (
         <div
           role="status"
@@ -254,17 +307,28 @@ export const PanelHistorial: React.FC<PanelHistorialProps> = ({
         </div>
       )}
 
-      {/* Lista de configuraciones (~10 entradas visibles con scroll interno) */}
+      {/* Lista de configuraciones filtradas */}
       {historial.length === 0 ? (
         <div className="bg-[#14161A] border border-[#2E333B] rounded-[8px] p-6 text-center text-sm text-[#9AA3AE]">
           Aún no hay configuraciones guardadas
+        </div>
+      ) : historialFiltrado.length === 0 ? (
+        <div className="bg-[#14161A] border border-[#2E333B] rounded-[8px] p-6 text-center text-sm text-[#9AA3AE] flex flex-col items-center gap-2">
+          <span>No se encontraron configuraciones que coincidan con &quot;{busqueda}&quot;</span>
+          <button
+            type="button"
+            onClick={() => setBusqueda('')}
+            className="text-xs text-[#8A9A5B] hover:underline cursor-pointer"
+          >
+            Limpiar filtro de búsqueda
+          </button>
         </div>
       ) : (
         <ul
           aria-label="Lista de configuraciones guardadas"
           className="max-h-[560px] overflow-y-auto divide-y divide-[#2E333B] border border-[#2E333B] rounded-[8px] bg-[#14161A]"
         >
-          {historial.map((item) => {
+          {historialFiltrado.map((item) => {
             const pidiendoConfirmacion = confirmandoId === item.id;
             return (
               <li

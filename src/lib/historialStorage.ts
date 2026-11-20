@@ -200,3 +200,28 @@ export function fusionarHistorialImportado(
     importadas: entradasImportadas.length,
   };
 }
+
+/**
+ * Filtra la lista de configuraciones guardadas por término de búsqueda (coincidencia
+ * insensible a mayúsculas/minúsculas en nombre, base, objetivo, modo o id).
+ * Si query está vacío, devuelve la lista original.
+ */
+export function filtrarHistorial(
+  lista: ConfiguracionGuardada[],
+  query: string
+): ConfiguracionGuardada[] {
+  if (!query || !query.trim()) {
+    return lista;
+  }
+
+  const q = query.trim().toLowerCase();
+
+  return lista.filter((item) => {
+    if (item.nombre.toLowerCase().includes(q)) return true;
+    if (item.id.toLowerCase().includes(q)) return true;
+    if (item.modo.toLowerCase().includes(q)) return true;
+    if (item.base.toLowerCase().includes(q)) return true;
+    if (item.objetivo.toLowerCase().includes(q)) return true;
+    return false;
+  });
+}
